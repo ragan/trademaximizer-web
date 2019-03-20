@@ -119,7 +119,7 @@ class MetricUsersSumOfSquares implements Metrics {
         //  System.out.print("Sizes:");
         //  for (Integer user : users.values())
         //    System.out.print(" " + user.intValue());
-        //  System.out.println();
+        //  logger.log();
         //}
 
     return sum;
@@ -222,7 +222,7 @@ public class TradeMaximizer {
       graph.restoreMatches();
     }
     long stopTime = System.currentTimeMillis();
-    displayMatches(bestCycles);
+    displayMatches(bestCycles, logger);
 
     if (showElapsedTime)
       logger.log("Elapsed time = " + (stopTime-startTime) + "ms");
@@ -484,7 +484,7 @@ public class TradeMaximizer {
     }
   }
 
-  String parseArgs(String[] args, boolean doit, FatalError err) throws IOException {
+  String parseArgs(String[] args, boolean doit, FatalError err, Logger logger) throws IOException {
     int c, optind;
     LongOpt[] longopts = new LongOpt[22];
 
@@ -552,7 +552,7 @@ public class TradeMaximizer {
 
           int i;
           for (i = 0 ; i < longopts.length ; i++) {
-            System.out.println("    -" + (char)longopts[i].getVal()
+            logger.log("    -" + (char)longopts[i].getVal()
               + " --" + longopts[i].getName());
           }
           break;
@@ -835,7 +835,7 @@ public class TradeMaximizer {
 
   //////////////////////////////////////////////////////////////////////
   
-  void displayMatches(List<List<Graph.Vertex>> cycles) {
+  void displayMatches(List<List<Graph.Vertex>> cycles, Logger logger) throws IOException {
     int numTrades = 0;
     int numGroups = cycles.size();
     int totalCost = 0;
@@ -870,37 +870,37 @@ public class TradeMaximizer {
     }
 
     if (showLoops) {
-      System.out.println("TRADE LOOPS (" + numTrades + " total trades):");
-      System.out.println();
-      for (String item : loops) System.out.println(item);
+      logger.log("TRADE LOOPS (" + numTrades + " total trades):");
+      logger.log();
+      for (String item : loops) logger.log(item);
     }
     
     if (showSummary) {
       Collections.sort(summary);
-      System.out.println("ITEM SUMMARY (" + numTrades + " total trades):");
-      System.out.println();
-      for (String item : summary) System.out.println(item);
-      System.out.println();
+      logger.log("ITEM SUMMARY (" + numTrades + " total trades):");
+      logger.log();
+      for (String item : summary) logger.log(item);
+      logger.log();
     }
 
     
     System.out.print("Num trades  = " + numTrades + " of " + (ITEMS-DUMMY_ITEMS) + " items");    
-    if (ITEMS-DUMMY_ITEMS == 0) System.out.println();
-    else System.out.println(new DecimalFormat(" (0.0%)").format(numTrades/(double)(ITEMS-DUMMY_ITEMS)));
+    if (ITEMS-DUMMY_ITEMS == 0) logger.log();
+    else logger.log(new DecimalFormat(" (0.0%)").format(numTrades/(double)(ITEMS-DUMMY_ITEMS)));
     
     if (showStats) {
       System.out.print("Total cost  = " + totalCost);
-      if (numTrades == 0) System.out.println();
-      else System.out.println(new DecimalFormat(" (avg 0.00)").format(totalCost/(double)numTrades));
-      System.out.println("Num groups  = " + numGroups);
+      if (numTrades == 0) logger.log();
+      else logger.log(new DecimalFormat(" (avg 0.00)").format(totalCost/(double)numTrades));
+      logger.log("Num groups  = " + numGroups);
       System.out.print("Group sizes =");
       Collections.sort(groupSizes);
       Collections.reverse(groupSizes);
       for (int groupSize : groupSizes) System.out.print(" " + groupSize);
-      System.out.println();
-      System.out.println("Sum squares = " + sumOfSquares);
+      logger.log();
+      logger.log("Sum squares = " + sumOfSquares);
 
-//      System.out.println("Orphans     = " + graph.orphans.size());
+//      logger.log("Orphans     = " + graph.orphans.size());
     }
   }
 
@@ -923,9 +923,13 @@ public class TradeMaximizer {
     public Logger(OutputStream outputStream) {
       this.outputStream = outputStream;
     }
+    public void log() throws IOException {
+        outputStream.write("\n".getBytes());
+    }
     public void log(String msg) {
       try {
         outputStream.write(msg.getBytes());
+        outputStream.write("\n".getBytes());
       } catch (IOException e) {
           // todo: do something about it
       }

@@ -144,7 +144,7 @@ public class TradeMaximizer {
   public void run(String[] args, InputStream istream, OutputStream ostream) throws IOException {
     ostream.write(("TradeMaximizer " + version).getBytes());
 
-    List< String[] > wantLists = readWantLists(istream);
+    List< String[] > wantLists = readWantLists(istream, new FatalError(ostream));
     if (wantLists == null) return;
     if (options.size() > 0) {
       ostream.write("Options:".getBytes());
@@ -264,7 +264,7 @@ public class TradeMaximizer {
   HashSet<String> officialNames = null;
   List<String> usedNames = new ArrayList<String>();
   
-  List<String[]> readWantLists(InputStream istream) {
+  List<String[]> readWantLists(InputStream istream, FatalError err) throws IOException {
     try {
       BufferedReader in = new BufferedReader(new InputStreamReader(istream));
       List<String[]> wantLists = new ArrayList<String[]>();
@@ -278,9 +278,9 @@ public class TradeMaximizer {
         if (line.length() == 0) continue; // skip blank link
         if (line.matches("#!.*")) { // declare options
           if (wantLists.size() > 0)
-            fatalError("Options (#!...) cannot be declared after first real want list", lineNumber);
+            err.fatalError("Options (#!...) cannot be declared after first real want list", lineNumber);
           if (officialNames != null)
-            fatalError("Options (#!...) cannot be declared after official names", lineNumber);
+            err.fatalError("Options (#!...) cannot be declared after official names", lineNumber);
           for (String option : line.toUpperCase().substring(2).trim().split("\\s+")) {
             if (option.equals("CASE-SENSITIVE"))
               caseSensitive = true;
@@ -321,31 +321,31 @@ public class TradeMaximizer {
             else if (option.startsWith("SMALL-STEP=")) {
               String num = option.substring(11);
               if (!num.matches("\\d+"))
-                fatalError("SMALL-STEP argument must be a non-negative integer",lineNumber);
+                err.fatalError("SMALL-STEP argument must be a non-negative integer",lineNumber);
               smallStep = Integer.parseInt(num);
             }
             else if (option.startsWith("BIG-STEP=")) {
               String num = option.substring(9);
               if (!num.matches("\\d+"))
-                fatalError("BIG-STEP argument must be a non-negative integer",lineNumber);
+                err.fatalError("BIG-STEP argument must be a non-negative integer",lineNumber);
               bigStep = Integer.parseInt(num);
             }
             else if (option.startsWith("NONTRADE-COST=")) {
               String num = option.substring(14);
               if (!num.matches("[1-9]\\d*"))
-                fatalError("NONTRADE-COST argument must be a positive integer",lineNumber);
+                err.fatalError("NONTRADE-COST argument must be a positive integer",lineNumber);
               nonTradeCost = Long.parseLong(num);
             }
             else if (option.startsWith("ITERATIONS=")) {
               String num = option.substring(11);
               if (!num.matches("[1-9]\\d*"))
-                fatalError("ITERATIONS argument must be a positive integer",lineNumber);
+                err.fatalError("ITERATIONS argument must be a positive integer",lineNumber);
               iterations = Integer.parseInt(num);
             }
             else if (option.startsWith("SEED=")) {
               String num = option.substring(5);
               if (!num.matches("[1-9]\\d*"))
-                fatalError("SEED argument must be a positive integer",lineNumber);
+                err.fatalError("SEED argument must be a positive integer",lineNumber);
               seed = Long.parseLong(num);
               graph.setSeed(seed);
             }
@@ -367,10 +367,10 @@ public class TradeMaximizer {
                 // This is the default
               }
 	      else
-                fatalError("Unknown metric option \""+met+"\"",lineNumber);
+                err.fatalError("Unknown metric option \""+met+"\"",lineNumber);
             }
             else
-              fatalError("Unknown option \""+option+"\"",lineNumber);
+              err.fatalError("Unknown option \""+option+"\"",lineNumber);
 
             options.add(option);
           }
@@ -380,19 +380,19 @@ public class TradeMaximizer {
         if (line.indexOf("#") != -1) {
           if (readingOfficialNames) {
             if (line.split("[:\\s]")[0].indexOf("#") != -1) {
-              fatalError("# symbol cannot be used in an item name",lineNumber);
+              err.fatalError("# symbol cannot be used in an item name",lineNumber);
             }
           }
           else
-            fatalError("Comments (#...) cannot be used after beginning of line",lineNumber);
+            err.fatalError("Comments (#...) cannot be used after beginning of line",lineNumber);
         }
 
         // handle official names
         if (line.equalsIgnoreCase("!BEGIN-OFFICIAL-NAMES")) {
           if (officialNames != null)
-            fatalError("Cannot begin official names more than once", lineNumber);
+            err.fatalError("Cannot begin official names more than once", lineNumber);
           if (wantLists.size() > 0)
-            fatalError("Official names cannot be declared after first real want list", lineNumber);
+            err.fatalError("Official names cannot be declared after first real want list", lineNumber);
             
           officialNames = new HashSet<String>();
           readingOfficialNames = true;
@@ -400,40 +400,40 @@ public class TradeMaximizer {
         }
         if (line.equalsIgnoreCase("!END-OFFICIAL-NAMES")) {
           if (!readingOfficialNames)
-            fatalError("!END-OFFICIAL-NAMES without matching !BEGIN-OFFICIAL-NAMES", lineNumber);
+            err.fatalError("!END-OFFICIAL-NAMES without matching !BEGIN-OFFICIAL-NAMES", lineNumber);
           readingOfficialNames = false;
           continue;
         }
         if (readingOfficialNames) {
           if (line.charAt(0) == ':')
-            fatalError("Line cannot begin with colon",lineNumber);
+            err.fatalError("Line cannot begin with colon",lineNumber);
           if (line.charAt(0) == '%')
-            fatalError("Cannot give official names for dummy items",lineNumber);
+            err.fatalError("Cannot give official names for dummy items",lineNumber);
             
           String[] toks = line.split("[:\\s]");
           String name = toks[0];
           if (!caseSensitive) name = name.toUpperCase();
           if (officialNames.contains(name))
-            fatalError("Official name "+name+"+ already defined",lineNumber);
+            err.fatalError("Official name "+name+"+ already defined",lineNumber);
           officialNames.add(name);
           continue;
         }
 
         // check parens for user name
         if (line.indexOf("(") == -1 && requireUsernames)
-          fatalError("Missing username with REQUIRE-USERNAMES selected",lineNumber);
+          err.fatalError("Missing username with REQUIRE-USERNAMES selected",lineNumber);
         if (line.charAt(0) == '(') {
           if (line.lastIndexOf("(") > 0)
-            fatalError("Cannot have more than one '(' per line",lineNumber);
+            err.fatalError("Cannot have more than one '(' per line",lineNumber);
           int close = line.indexOf(")");
           if (close == -1)
-            fatalError("Missing ')' in username",lineNumber);
+            err.fatalError("Missing ')' in username",lineNumber);
           if (close == line.length()-1)
-            fatalError("Username cannot appear on a line by itself",lineNumber);
+            err.fatalError("Username cannot appear on a line by itself",lineNumber);
           if (line.lastIndexOf(")") > close)
-            fatalError("Cannot have more than one ')' per line",lineNumber);
+            err.fatalError("Cannot have more than one ')' per line",lineNumber);
           if (close == 1)
-            fatalError("Cannot have empty parentheses",lineNumber);
+            err.fatalError("Cannot have empty parentheses",lineNumber);
 
           // temporarily replace spaces in username with #'s
           if (line.indexOf(" ") < close) {
@@ -442,9 +442,9 @@ public class TradeMaximizer {
           }
         }
         else if (line.indexOf("(") > 0)
-          fatalError("Username can only be used at the front of a want list",lineNumber);
+          err.fatalError("Username can only be used at the front of a want list",lineNumber);
         else if (line.indexOf(")") > 0)
-          fatalError("Bad ')' on a line that does not have a '('",lineNumber);
+          err.fatalError("Bad ')' on a line that does not have a '('",lineNumber);
 
           
         // check semicolons
@@ -452,24 +452,24 @@ public class TradeMaximizer {
         int semiPos = line.indexOf(";");
         if (semiPos != -1) {
           if (semiPos < line.indexOf(":"))
-            fatalError("Semicolon cannot appear before colon",lineNumber);
+            err.fatalError("Semicolon cannot appear before colon",lineNumber);
           String before = line.substring(0,semiPos).trim();
           if (before.length() == 0 || before.charAt(before.length()-1) == ')')
-            fatalError("Semicolon cannot appear before first item on line", lineNumber);
+            err.fatalError("Semicolon cannot appear before first item on line", lineNumber);
         }
         
         // check and remove colon
         int colonPos = line.indexOf(":");
         if (colonPos != -1) {
           if (line.lastIndexOf(":") != colonPos)
-            fatalError("Cannot have more that one colon on a line",lineNumber);
+            err.fatalError("Cannot have more that one colon on a line",lineNumber);
           String header = line.substring(0,colonPos).trim();
           if (!header.matches("(.*\\)\\s+)?[^(\\s)]\\S*"))
-            fatalError("Must have exactly one item before a colon (:)",lineNumber);
+            err.fatalError("Must have exactly one item before a colon (:)",lineNumber);
           line = line.replaceFirst(":"," "); // remove colon
         }
         else if (requireColons) {
-          fatalError("Missing colon with REQUIRE-COLONS selected",lineNumber);
+          err.fatalError("Missing colon with REQUIRE-COLONS selected",lineNumber);
         }
 
         if (!caseSensitive) line = line.toUpperCase();
@@ -477,12 +477,12 @@ public class TradeMaximizer {
       }
     }
     catch(Exception e) {
-      fatalError(e.getMessage());
+      err.fatalError(e.getMessage());
       return null;
     }
   }
 
-  String parseArgs(String[] args, boolean doit) {
+  String parseArgs(String[] args, boolean doit, FatalError err) throws IOException {
     int c, optind;
     LongOpt[] longopts = new LongOpt[22];
 
@@ -592,7 +592,7 @@ public class TradeMaximizer {
           else if( arg.equalsIgnoreCase("none") )
             priorityScheme = NO_PRIORITIES;
 	  else
-            fatalError("Unknown priority type: " + arg);
+            err.fatalError("Unknown priority type: " + arg);
           break;
         case 'M' :
           String met = arg.toUpperCase();
@@ -607,10 +607,10 @@ public class TradeMaximizer {
           else if (met.matches("CHAIN-SIZES-SOS"))
             metric = new MetricSumSquares();
           else
-            fatalError("Unknown metric: " + met);
+            err.fatalError("Unknown metric: " + met);
           break;
         case '?' :
-	  fatalError("Exiting due to unknown or badly form command line option");
+	  err.fatalError("Exiting due to unknown or badly form command line option");
           break;
         default :
           break;
@@ -622,13 +622,23 @@ public class TradeMaximizer {
     return optind < args.length ? args[optind] : null;
   }
 
-  void fatalError(String msg) {
-    System.out.println();
-    System.out.println("FATAL ERROR: " + msg);
-//    System.exit(1);
-  }
-  void fatalError(String msg,int lineNumber) {
-    fatalError(msg + " (line " + lineNumber + ")");
+
+  class FatalError {
+
+    private OutputStream outputStream;
+
+    public FatalError(OutputStream outputStream) {
+      this.outputStream = outputStream;
+    }
+
+    void fatalError(String msg) throws IOException {
+        outputStream.write("\n".getBytes());
+      outputStream.write(("FATAL ERROR: " + msg).getBytes());
+    }
+
+    void fatalError(String msg,int lineNumber) throws IOException {
+      fatalError(msg + " (line " + lineNumber + ")");
+    }
   }
 
   //////////////////////////////////////////////////////////////////////

@@ -131,46 +131,27 @@ class MetricUsersSumOfSquares implements Metrics {
 };
 
 public class TradeMaximizer {
-  public static void main(String[] args) { new TradeMaximizer().run(args, System.in); }
+  public static void main(String[] args) throws IOException { new TradeMaximizer().run(args, System.in, System.out); }
   
   final String version = "Version 1.4a";
 
   Metrics metric = new MetricSumSquares();
 
-  public void run(String[] args, String in) {
-    run(args, new ByteArrayInputStream(in.getBytes()));
+  public void run(String[] args, String in) throws IOException {
+    run(args, new ByteArrayInputStream(in.getBytes()), System.out);
   }
 
-  public void run(String[] args, InputStream istream) {
+  public void run(String[] args, InputStream istream, OutputStream ostream) throws IOException {
+    ostream.write(("TradeMaximizer " + version).getBytes());
 
-    System.out.println("TradeMaximizer " + version);
-
-//    String filename = parseArgs(args, false);
-
-//    if( filename != null ) {
-//      System.out.println("Input from: " + filename);
-
-//      try {
-//        if (filename.startsWith("http:") || filename.startsWith("ftp:")) {
-//          URL url = new URL(filename);
-//          istream = url.openStream();
-//        }
-//        else
-//          istream = new FileInputStream(filename);
-//      }
-//      catch (IOException ex) {
-//        fatalError(ex.toString());
-//      }
-//    }
-    
     List< String[] > wantLists = readWantLists(istream);
     if (wantLists == null) return;
     if (options.size() > 0) {
-      System.out.print("Options:");
-      for (String option : options) System.out.print(" "+option);
-      System.out.println();
+      ostream.write("Options:".getBytes());
+      for (String option : options) ostream.write((" "+option).getBytes());
+        ostream.write("\n".getBytes());
     }
-    System.out.println();
+    ostream.write("\n".getBytes());
 
     try {
       MessageDigest digest = MessageDigest.getInstance("MD5");
@@ -181,7 +162,7 @@ public class TradeMaximizer {
         }
   	digest.update((byte)'\n');
       }
-      System.out.println("Input Checksum: " + toHexString(digest.digest()));
+      ostream.write(("Input Checksum: " + toHexString(digest.digest())).getBytes());
     }
     catch (NoSuchAlgorithmException ex) { }
 
@@ -189,11 +170,11 @@ public class TradeMaximizer {
 
     if( iterations > 1 && seed == -1 ) {
       seed = System.currentTimeMillis();
-      System.out.println("No explicit SEED, using " + seed);
+      ostream.write(("No explicit SEED, using " + seed).getBytes());
     }
 
     if ( ! (metric instanceof MetricSumSquares) && priorityScheme != NO_PRIORITIES )
-      System.out.println("Warning: using priorities with the non-default metric is normally worthless");
+      ostream.write("Warning: using priorities with the non-default metric is normally worthless".getBytes());
 
     buildGraph(wantLists);
     if (showMissing && officialNames != null && officialNames.size() > 0) {
@@ -201,15 +182,15 @@ public class TradeMaximizer {
       List<String> missing = new ArrayList<String>(officialNames);
       Collections.sort(missing);
       for (String name : missing) {
-        System.out.println("**** Missing want list for official name " +name);
+        ostream.write(("**** Missing want list for official name " +name).getBytes());
       }
-      System.out.println();
+      ostream.write("\n".getBytes());
     }
     if (showErrors && errors.size() > 0) {
       Collections.sort(errors);
-      System.out.println("ERRORS:");
-      for (String error : errors) System.out.println(error);
-      System.out.println();
+      ostream.write("ERRORS:".getBytes());
+      for (String error : errors) ostream.write(error.getBytes());
+      ostream.write("\n".getBytes());
     }
 
     long startTime = System.currentTimeMillis();
@@ -218,7 +199,7 @@ public class TradeMaximizer {
     int bestMetric = metric.calculate(bestCycles);
 
     if (iterations > 1) {
-      System.out.println(metric);
+      ostream.write(metric.toString().getBytes());
       graph.saveMatches();
 
       for (int i = 0; i < iterations-1; i++) {
@@ -230,19 +211,19 @@ public class TradeMaximizer {
           bestMetric = newMetric;
           bestCycles = cycles;
           graph.saveMatches();
-          System.out.println(metric);
+          ostream.write(metric.toString().getBytes());
         }
         else if (verbose)
-          System.out.println("# " + metric);
+          ostream.write(("# " + metric).getBytes());
       }
-      System.out.println();
+      ostream.write("\n".getBytes());
       graph.restoreMatches();
     }
     long stopTime = System.currentTimeMillis();
     displayMatches(bestCycles);
 
     if (showElapsedTime)
-      System.out.println("Elapsed time = " + (stopTime-startTime) + "ms");
+      ostream.write(("Elapsed time = " + (stopTime-startTime) + "ms").getBytes());
   }
 
   boolean caseSensitive = false;

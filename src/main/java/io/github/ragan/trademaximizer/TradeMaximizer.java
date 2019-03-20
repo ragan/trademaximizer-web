@@ -142,16 +142,18 @@ public class TradeMaximizer {
   }
 
   public void run(String[] args, InputStream istream, OutputStream ostream) throws IOException {
-    ostream.write(("TradeMaximizer " + version).getBytes());
+    Logger logger = new Logger(ostream);
+    logger.log("TradeMaximizer " + version);
+
 
     List< String[] > wantLists = readWantLists(istream, new FatalError(ostream));
     if (wantLists == null) return;
     if (options.size() > 0) {
-      ostream.write("Options:".getBytes());
-      for (String option : options) ostream.write((" "+option).getBytes());
-        ostream.write("\n".getBytes());
+      logger.log("Options:");
+      for (String option : options) logger.log(" "+option);
+        logger.log("\n");
     }
-    ostream.write("\n".getBytes());
+    logger.log("\n");
 
     try {
       MessageDigest digest = MessageDigest.getInstance("MD5");
@@ -162,7 +164,7 @@ public class TradeMaximizer {
         }
   	digest.update((byte)'\n');
       }
-      ostream.write(("Input Checksum: " + toHexString(digest.digest())).getBytes());
+      logger.log("Input Checksum: " + toHexString(digest.digest()));
     }
     catch (NoSuchAlgorithmException ex) { }
 
@@ -170,11 +172,11 @@ public class TradeMaximizer {
 
     if( iterations > 1 && seed == -1 ) {
       seed = System.currentTimeMillis();
-      ostream.write(("No explicit SEED, using " + seed).getBytes());
+      logger.log("No explicit SEED, using " + seed);
     }
 
     if ( ! (metric instanceof MetricSumSquares) && priorityScheme != NO_PRIORITIES )
-      ostream.write("Warning: using priorities with the non-default metric is normally worthless".getBytes());
+      logger.log("Warning: using priorities with the non-default metric is normally worthless");
 
     buildGraph(wantLists);
     if (showMissing && officialNames != null && officialNames.size() > 0) {
@@ -182,15 +184,15 @@ public class TradeMaximizer {
       List<String> missing = new ArrayList<String>(officialNames);
       Collections.sort(missing);
       for (String name : missing) {
-        ostream.write(("**** Missing want list for official name " +name).getBytes());
+        logger.log("**** Missing want list for official name " +name);
       }
-      ostream.write("\n".getBytes());
+      logger.log("\n");
     }
     if (showErrors && errors.size() > 0) {
       Collections.sort(errors);
-      ostream.write("ERRORS:".getBytes());
-      for (String error : errors) ostream.write(error.getBytes());
-      ostream.write("\n".getBytes());
+      logger.log("ERRORS:");
+      for (String error : errors) logger.log(error);
+      logger.log("\n");
     }
 
     long startTime = System.currentTimeMillis();
@@ -199,7 +201,7 @@ public class TradeMaximizer {
     int bestMetric = metric.calculate(bestCycles);
 
     if (iterations > 1) {
-      ostream.write(metric.toString().getBytes());
+      logger.log(metric.toString());
       graph.saveMatches();
 
       for (int i = 0; i < iterations-1; i++) {
@@ -211,19 +213,19 @@ public class TradeMaximizer {
           bestMetric = newMetric;
           bestCycles = cycles;
           graph.saveMatches();
-          ostream.write(metric.toString().getBytes());
+          logger.log(metric.toString());
         }
         else if (verbose)
-          ostream.write(("# " + metric).getBytes());
+          logger.log("# " + metric);
       }
-      ostream.write("\n".getBytes());
+      logger.log("\n");
       graph.restoreMatches();
     }
     long stopTime = System.currentTimeMillis();
     displayMatches(bestCycles);
 
     if (showElapsedTime)
-      ostream.write(("Elapsed time = " + (stopTime-startTime) + "ms").getBytes());
+      logger.log("Elapsed time = " + (stopTime-startTime) + "ms");
   }
 
   boolean caseSensitive = false;
@@ -914,6 +916,20 @@ public class TradeMaximizer {
     for (byte b : bytes) str = str + Integer.toHexString(b & 0xff);
 
     return str;
+  }
+
+  class Logger {
+    private OutputStream outputStream;
+    public Logger(OutputStream outputStream) {
+      this.outputStream = outputStream;
+    }
+    public void log(String msg) {
+      try {
+        outputStream.write(msg.getBytes());
+      } catch (IOException e) {
+          // todo: do something about it
+      }
+    }
   }
 
 } // end TradeMaximizer
